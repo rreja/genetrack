@@ -4,39 +4,63 @@
 #include <string.h>
 #include <math.h>
 
+/* Since the max size of human chromosome is 300,000,000, this program cannot allocate that much memory and dies,
+ * possible bug to consider when running human samples. Also, because of this memory restrictions, the size of peakArray
+ * cannot be more than 200000.
+ */
 
-void printArray(float *, long);
+
+void printArray(float *, long, char []);
 float* computeVector(float *,float *,int);
 //float* computeVector(float *,float *,float *,int);
 float* populate(float *, long);
 float* memoryAllocate(float *,long);
 float* computeSmoothing(float *,int);
+void findPeaks(float *);
+void printStructres();
+void callPeaks();
 
-long VSIZE = 50000000; /* size of the vector to initialize to */
+long VSIZE = 15000000; /* size of the vector to initialize to */
 long SSIZE = 1000;     /* size of smoothing vector to initialize to*/
-long DSIZE = 50000000; /* size of the duplicate vector to initialize to */
+long DSIZE = 15000000; /* size of the duplicate vector to initialize to */
+int const N = 4;        /* the parameter to contorl the spread of sigma, tells the program to go +/- 4*sigma */
+int const EXCLUSION = 20; /* The exclusion zone, the region in which no other peak would be called */
+
+FILE *op;
+struct peaks {
+				float peakHeight;
+				long index;
+				int flag;
+		}*pA;
+
+int intcmp(struct peaks *,struct peaks *); /*Function to be used in qsort */
+
 
 
 
 void main ()
 {
 	FILE *fp; /* pointer to the file */
-	fp = fopen("/Users/rohitreja/Desktop/test2.txt","r");   /* reading the file and assigning it to the pointer*/
+	fp = fopen("/Users/rohitreja/Desktop/genetrack-GAGA-no-shift.gff","r");   /* reading the file and assigning it to the pointer*/
+
+	/* to look at the smoothing of the distribution */
+	op = fopen("/Users/rohitreja/Desktop/output_peaks.gff","w");
+	fprintf(op,"%s\n","##gff-version 3");
+	 /* end of the lines */
 
 	char line[500];   /* char array to store each line*/
 	char *toks[10];   /* toks is an array of 10 elements, each of which points to a char */
 	char CHR[10],STRAND[5];
 	long START;
 	char PREVIOUS_CHR[10] = "NULL";
-	static float *vector, *dupvector;   /* vector to be populated */
-	static float *kernel;       /* smoothing vector to be populated */
+	float *vector, *dupvector;   /* vector to be populated */
+	float *kernel;       /* smoothing vector to be populated */
 	int SIGMA = 5;         /* SIGMA value to be taken by user */
-
-
 
 	vector = memoryAllocate(vector,VSIZE);         /* call to calloc to allocate and initialize vector */
 	kernel = memoryAllocate(kernel,SSIZE);   /* ONE TIME call to calloc to allocate and initialize smoothing vector */
     kernel = computeSmoothing(kernel,SIGMA);  /* Call to populate the smoothing vector */
+
 
 
 	while(fgets(line,500,fp) != NULL) /* fgets */
@@ -59,39 +83,105 @@ void main ()
 
 
 		if(strcmp(CHR,PREVIOUS_CHR)){
-            //dupvector = memoryAllocate(dupvector,VSIZE);
-			 dupvector = computeVector(vector,kernel,SIGMA);
-            //dupvector = computeVector(vector,kernel,dupvector,SIGMA);
-			printArray(dupvector,VSIZE);
+			if(strcmp("NULL",PREVIOUS_CHR)){
 
+				dupvector = computeVector(vector,kernel,SIGMA);
+				//printArray(dupvector,VSIZE,PREVIOUS_CHR);
+				findPeaks(dupvector);
+				qsort(pA,VSIZE,sizeof(struct peaks),intcmp);
+				callPeaks();
+				printStructres(PREVIOUS_CHR);
 
-			/*
-			 * Call the function to compute on vector and in the compute function
-			 *
-			 * Compute on the vector
-			 */
-			free(vector);                                      /* making memory free here */
-			free(dupvector);
-			vector = memoryAllocate(vector,VSIZE);
+				/*
+				 * Call the function to compute on vector and in the compute function
+				 *
+				 * Compute on the vector
+				 */
 
+				free(vector);                                    /* making memory free here */
+				vector = memoryAllocate(vector,VSIZE);
+				free(dupvector);
+				free(pA);
+
+			}
 
 		}
 
-		vector = populate(vector,START);
-		//printf("%ld,%s\n",START,CHR);
-		strcpy(PREVIOUS_CHR,CHR);
+		 vector = populate(vector,START);
+		 strcpy(PREVIOUS_CHR,CHR);
 
 	 }
 
 	/* Calling on the compute function here again to make sure the last line is executed too */
 	dupvector = computeVector(vector,kernel,SIGMA);
-	//dupvector = memoryAllocate(dupvector,VSIZE);
-	//dupvector = computeVector(vector,kernel,dupvector,SIGMA);
-	//free(dupvector);
-	printArray(dupvector,VSIZE);
+	//printArray(dupvector,VSIZE,CHR);
+	findPeaks(dupvector);
+	qsort(pA,VSIZE,sizeof(struct peaks),intcmp);
+	callPeaks();
+	printStructres(CHR);
+
+}
 
 
+/* FUNCTION DEFINITIONS START HERE */
 
+void callPeaks(){
+  long k,z,start_range,end_range;
+
+  for(k=VSIZE-1;k>0;k--){
+	  if(pA[k].flag == 0)
+	  	   continue;
+	  if(pA[k].peakHeight == 0)
+		  break;
+	  start_range = pA[k].index - EXCLUSION;
+	  end_range   = pA[k].index + EXCLUSION;
+	  if(start_range < 0 || end_range >VSIZE)
+		  continue;
+	 for(z=k-1;z>0;z--){
+		 if(pA[z].peakHeight == 0)
+			 break;
+
+		 if(pA[z].index >= start_range && pA[z].index <= end_range)
+     	 		  {
+		 			  pA[z].flag = 0;
+		 		  }
+
+	 }
+
+
+  }
+}
+
+void findPeaks(float *dup){
+    long m;
+    pA = calloc(VSIZE,sizeof(struct peaks));
+   		 if (pA == 0)
+  		 		{
+  		 			printf("ERROR: Out of memory\n");
+
+  		 		}
+
+	for(m=0;m<VSIZE-2;m++){
+		if(dup[m] >= dup[m+1] && dup[m] >= dup[m+2]){
+			pA[m].peakHeight = dup[m];
+			pA[m].index = m;
+			pA[m].flag = 1;
+
+		}
+		else if(dup[m+1] >= dup[m+2]){
+			pA[m].peakHeight = dup[m+1];
+			pA[m].index = m+1;
+			pA[m].flag = 1;
+
+		}
+		else{
+			pA[m].peakHeight = dup[m+2];
+			pA[m].index = m+2;
+			pA[m].flag = 1;
+
+		}
+
+	}
 
 }
 
@@ -104,13 +194,13 @@ float* computeVector(float *vector1,float *kernel1,int sigma){
 
 	/* looping throught the whole original vector of size VSIZE */
 
-	for(j=sigma;j<VSIZE-sigma;j++){
+	for(j=N*sigma;j<VSIZE-N*sigma;j++){
 		//if((j-sigma) < 0 || (j+sigma) > VSIZE)  /* checking for the margins */
 		//	continue;
 		if(vector1[j] >= 1)      /* start from the value, where the value in the original vector is non-zero*/
 		{
-			int start = j - sigma; /* start from the current position - sigma positions */
-			int end   = j+ sigma;  /* end to the current position + sigma positions */
+			int start = j - N*sigma; /* start from the current position - sigma positions */
+			int end   = j+ N*sigma;  /* end to the current position + sigma positions */
 			int l = 0,k;
 			float factor = vector1[j];
 			for(k=start;k<=end;k++){
@@ -137,7 +227,7 @@ float* memoryAllocate(float *v,long vsize){
 
 	v = calloc(vsize,sizeof(float));          /*initializing the vector*/
 	if(v == NULL){
-		printf("Insufficient memory\n");
+		printf("ERROR: Out of memory\n");
 			}
 	return v;
 
@@ -147,7 +237,7 @@ float* memoryAllocate(float *v,long vsize){
 float* computeSmoothing(float *sm, int sigma){
 
     int i,j=0;
-    for(i= -(sigma);i <=sigma; i++){
+    for(i= -(N*sigma);i <=N*sigma; i++){
     	sm[j] += exp(-pow(i,2)/(2*(pow(sigma,2))));
     	j++;
     }
@@ -155,14 +245,45 @@ float* computeSmoothing(float *sm, int sigma){
 
 }
 
-void printArray(float *arr, long size)
+int intcmp(struct peaks *v1, struct peaks *v2)
 {
-	long i;
+    if(v1->peakHeight > v2->peakHeight)
+    	return 1;
+   	else if(v1->peakHeight < v2->peakHeight)
+    	return -1;
+   	else
+   		return 0;
+
+
+}
+
+
+void printArray(float *arr, long size, char chr[10])
+{
+	long i;char temp[10];
+	strcpy(temp,chr);
+	fprintf(op,"variableStep chrom=%s\n",temp);
 	for(i=0;i<size;i++)
 	{
 		if(arr[i] <= 0)
 			continue;
-		printf("%f,%ld\n",arr[i],i);
+		fprintf(op,"%ld %f\n",i,arr[i]);
 	}
 }
 
+void printStructres(char chr[10]){
+	long m,start,end;
+	char temp[10];
+	strcpy(temp,chr);
+	for(m=0;m<VSIZE;m++)
+	{
+		start = pA[m].index - EXCLUSION;
+		end   = pA[m].index + EXCLUSION;
+		if((pA[m].peakHeight <=0) || (pA[m].flag == 0))
+			continue;
+
+		fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pA[m].peakHeight,".",".",".",".");
+
+	}
+
+}
