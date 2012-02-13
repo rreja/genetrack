@@ -9,7 +9,7 @@
  * cannot be more than 200000.
  */
 
-void printWiggle(float *, long, char []);
+void printWiggle(float *, long, char [],FILE *);
 float* computeVector(float *,float *,int);
 float* populate(float *, long);
 float* memoryAllocate(float *,long);
@@ -32,103 +32,8 @@ struct peaks {
 		}*pA;
 
 int revcmp(struct peaks *,struct peaks *); /*Function to be used in qsort */
-//void printGff(struct peaks *, char []);
 void printGff(struct peaks *, char [],FILE *);
 void callPeaks(struct peaks *);
-
-/* Start of main function */
-
-int main (int argc, const char **argv)
-{
-      void *options= gopt_sort( & argc, argv, gopt_start(
-      gopt_option( 'h', 0, gopt_shorts( 'h', '?' ), gopt_longs( "help", "HELP" )),
-      gopt_option( 'z', 0, gopt_shorts( 0 ), gopt_longs( "version" )),
-      gopt_option( 'v', GOPT_REPEAT, gopt_shorts( 'v' ), gopt_longs( "verbose" )),
-      gopt_option( 'o', GOPT_ARG, gopt_shorts( 'o' ), gopt_longs( "output" ))));
-
-if( gopt( options, 'h' ) ){
-    /*
-     * if any of the help options was specified
-     */
-    fprintf( stdout, "help text\n" );
-    exit( EXIT_SUCCESS );
-  }
-
-	FILE *fp, *op; /* pointer to the input and output file */
-//	fp = fopen("/Users/rohitreja/Desktop/genetrack-GAGA-no-shift_positive.gff","r");   /* reading the file and assigning it to the pointer*/
-	fp = fopen("/Users/rohitreja/Desktop/test.txt","r");
-
-	/* to look at the smoothing of the distribution */
-	op = fopen("/Users/rohitreja/Desktop/output_peaks.gff","w");
-	fprintf(op,"%s\n","##gff-version 3");
-	 /* end of the lines */
-
-
-	char line[500];   /* char array to store each line*/
-	char *toks[10];   /* toks is an array of 10 elements, each of which points to a char */
-	char CHR[10],STRAND[5];
-	long START;
-	char PREVIOUS_CHR[10] = "NULL";
-	float *vector, *dupvector;   /* vector to be populated */
-	float *kernel;       /* smoothing vector to be populated */
-	int SIGMA = 5;         /* SIGMA value to be taken by user */
-
-	vector = memoryAllocate(vector,VSIZE);         /* call to calloc to allocate and initialize vector */
-	kernel = memoryAllocate(kernel,SSIZE);   /* ONE TIME call to calloc to allocate and initialize smoothing vector */
-	kernel = computeSmoothing(kernel,SIGMA);  /* Call to populate the smoothing vector */
-
-
-
-	while(fgets(line,500,fp) != NULL) /* fgets */
-	{
-
-		if(line[0] == '#') /* ignore all the comment lines that start with # */
-			continue;
-
-		int cols = 0;
-		toks[cols] = strtok(line,"\t");
-		while(cols < 7)
-					{
-						toks[++cols] = strtok(NULL,"\t");                    /* storing all token in toks for one line */
-
-					}
-		strcpy(CHR,toks[0]);
-		strcpy(STRAND,toks[6]);
-		START = atoi(toks[3]);
-		//printf("%s,%ld\n",CHR,START);
-
-		if((strcmp(CHR,PREVIOUS_CHR)) && (strcmp("NULL",PREVIOUS_CHR))){
-
-				dupvector = computeVector(vector,kernel,SIGMA);
-				//printWiggle(dupvector,VSIZE,PREVIOUS_CHR);
-				findPeaks(dupvector);
-				qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
-				callPeaks(pA);
-				printGff(pA,PREVIOUS_CHR,op);
-				/* making memory free here */
-				free(vector);
-				vector = memoryAllocate(vector,VSIZE);
-				free(dupvector);
-				free(pA);
-
-		}
-
-		 vector = populate(vector,START);
-		 strcpy(PREVIOUS_CHR,CHR);
-
-	 }
-
-	/* Calling on the compute function here again to make sure the last line is executed too */
-	dupvector = computeVector(vector,kernel,SIGMA);
-	//printWiggle(dupvector,VSIZE,CHR);
-	findPeaks(dupvector);
-	qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
-	callPeaks(pA);
-	printGff(pA,CHR,op);
-	fclose(fp);
-	fclose(op);
-
-}
 
 
 /* FUNCTION DEFINITIONS START HERE */
@@ -253,17 +158,17 @@ int revcmp(struct peaks *v1, struct peaks *v2)
 }
 
 
-void printWiggle(float *arr, long size, char chr[10])
+void printWiggle(float *arr, long size, char chr[10],FILE *op)
 {
 	long i;char temp[10];
 	strcpy(temp,chr);
-	//fprintf(op,"variableStep chrom=%s\n",temp);
+	fprintf(op,"variableStep chrom=%s\n",temp);
 	//printf("variableStep chrom=%s\n",temp);
 	for(i=0;i<size;i++)
 	{
 		if(arr[i] <= 0)
 			continue;
-		//fprintf(op,"%ld %f\n",i,arr[i]);
+		fprintf(op,"%ld %f\n",i,arr[i]);
 		//printf("%ld %f\n",i,arr[i]);
 	}
 }
@@ -272,8 +177,9 @@ void printGff(struct peaks *pB, char chr[10],FILE *op){
 	long m,start,end;
 	char temp[10];
 	strcpy(temp,chr);
-	for(m=0;m<VSIZE;m++)
+	for(m=0;m<PSIZE;m++)
 	{
+
 		start = pB[m].value - EXCLUSION;
 		end   = pB[m].value + EXCLUSION;
 		if((pB[m].height <=0) || (pB[m].flag == 0))    /*  change here, if you want to print by peak height */
@@ -284,5 +190,101 @@ void printGff(struct peaks *pB, char chr[10],FILE *op){
 
 
 	}
+        fflush(stdout);
+        fflush(op);
+}
+
+
+/* Start of main function */
+
+int main (int argc, const char **argv)
+{
+      void *options= gopt_sort( & argc, argv, gopt_start(
+      gopt_option( 'h', 0, gopt_shorts( 'h', '?' ), gopt_longs( "help", "HELP" )),
+      gopt_option( 'z', 0, gopt_shorts( 0 ), gopt_longs( "version" )),
+      gopt_option( 'v', GOPT_REPEAT, gopt_shorts( 'v' ), gopt_longs( "verbose" )),
+      gopt_option( 'o', GOPT_ARG, gopt_shorts( 'o' ), gopt_longs( "output" ))));
+
+if( gopt( options, 'h' ) ){
+    /*
+     * if any of the help options was specified
+     */
+    fprintf( stdout, "help text\n" );
+    exit( EXIT_SUCCESS );
+  }
+
+	FILE *fp, *op; /* pointer to the input and output file */
+//	fp = fopen("test/large.gff","r");   /* reading the file and assigning it to the pointer*/
+	fp = fopen("test/small.gff","r");
+
+	/* to look at the smoothing of the distribution */
+	op = fopen("output_peaks.gff","w");
+	fprintf(op,"%s\n","##gff-version 3");
+	 /* end of the lines */
+
+
+	char line[500];   /* char array to store each line*/
+	char *toks[10];   /* toks is an array of 10 elements, each of which points to a char */
+	char CHR[10],STRAND[5];
+	long START;
+	char PREVIOUS_CHR[10] = "NULL";
+	float *vector, *dupvector;   /* vector to be populated */
+	float *kernel;       /* smoothing vector to be populated */
+	int SIGMA = 5;         /* SIGMA value to be taken by user */
+
+	vector = memoryAllocate(vector,VSIZE);         /* call to calloc to allocate and initialize vector */
+	kernel = memoryAllocate(kernel,SSIZE);   /* ONE TIME call to calloc to allocate and initialize smoothing vector */
+	kernel = computeSmoothing(kernel,SIGMA);  /* Call to populate the smoothing vector */
+
+
+
+	while(fgets(line,500,fp) != NULL) /* fgets */
+	{
+
+		if(line[0] == '#') /* ignore all the comment lines that start with # */
+			continue;
+
+		int cols = 0;
+		toks[cols] = strtok(line,"\t");
+		while(cols < 7)
+					{
+						toks[++cols] = strtok(NULL,"\t");                    /* storing all token in toks for one line */
+
+					}
+		strcpy(CHR,toks[0]);
+		strcpy(STRAND,toks[6]);
+		START = atoi(toks[3]);
+		//printf("%s,%ld\n",CHR,START);
+
+		if((strcmp(CHR,PREVIOUS_CHR)) && (strcmp("NULL",PREVIOUS_CHR))){
+
+				dupvector = computeVector(vector,kernel,SIGMA);
+				//printWiggle(dupvector,VSIZE,PREVIOUS_CHR,op);
+				findPeaks(dupvector);
+				qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
+				callPeaks(pA);
+				printGff(pA,PREVIOUS_CHR,op);
+				/* making memory free here */
+				free(vector);
+				vector = memoryAllocate(vector,VSIZE);
+				free(dupvector);
+				free(pA);
+
+		}
+
+		 vector = populate(vector,START);
+		 strcpy(PREVIOUS_CHR,CHR);
+
+	 }
+
+	/* Calling on the compute function here again to make sure the last line is executed too */
+	dupvector = computeVector(vector,kernel,SIGMA);
+	//printWiggle(dupvector,VSIZE,CHR,op);
+	findPeaks(dupvector);
+	qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
+	callPeaks(pA);
+	printGff(pA,CHR,op);
+	fclose(fp);
+	fclose(op);
 
 }
