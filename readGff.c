@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,17 +8,14 @@
  * cannot be more than 200000.
  */
 
-
 void printWiggle(float *, long, char []);
 float* computeVector(float *,float *,int);
 float* populate(float *, long);
 float* memoryAllocate(float *,long);
 float* computeSmoothing(float *,int);
 void findPeaks(float *);
-//void printGff();
 
-
-
+/* Constant declarations */
 long VSIZE = 15000000; /* size of the vector to initialize to */
 long SSIZE = 1000;     /* size of smoothing vector to initialize to*/
 long DSIZE = 15000000; /* size of the duplicate vector to initialize to */
@@ -27,6 +23,7 @@ long PSIZE = 100000;    /* size of the structure to initialize to*/
 int const N = 4;        /* the parameter to contorl the spread of sigma, tells the program to go +/- 4*sigma */
 int const EXCLUSION = 20; /* The exclusion zone, the region in which no other peak would be called */
 
+/* Declaration of other global variables */
 FILE *op;
 struct peaks {
 				float height;
@@ -38,7 +35,7 @@ int revcmp(struct peaks *,struct peaks *); /*Function to be used in qsort */
 void printGff(struct peaks *, char []);
 void callPeaks(struct peaks *);
 
-
+/* Start of main function */
 
 void main ()
 {
@@ -62,7 +59,7 @@ void main ()
 
 	vector = memoryAllocate(vector,VSIZE);         /* call to calloc to allocate and initialize vector */
 	kernel = memoryAllocate(kernel,SSIZE);   /* ONE TIME call to calloc to allocate and initialize smoothing vector */
-    kernel = computeSmoothing(kernel,SIGMA);  /* Call to populate the smoothing vector */
+	kernel = computeSmoothing(kernel,SIGMA);  /* Call to populate the smoothing vector */
 
 
 
@@ -84,9 +81,7 @@ void main ()
 		START = atoi(toks[3]);
 		//printf("%s,%ld\n",CHR,START);
 
-
-		if(strcmp(CHR,PREVIOUS_CHR)){
-			if(strcmp("NULL",PREVIOUS_CHR)){
+		if((strcmp(CHR,PREVIOUS_CHR)) && (strcmp("NULL",PREVIOUS_CHR))){
 
 				dupvector = computeVector(vector,kernel,SIGMA);
 				//printWiggle(dupvector,VSIZE,PREVIOUS_CHR);
@@ -94,20 +89,11 @@ void main ()
 				qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
 				callPeaks(pA);
 				printGff(pA,PREVIOUS_CHR);
-
-
-				/*
-				 * Call the function to compute on vector and in the compute function
-				 *
-				 * Compute on the vector
-				 */
-
-				free(vector);                                    /* making memory free here */
+				/* making memory free here */
+				free(vector);
 				vector = memoryAllocate(vector,VSIZE);
 				free(dupvector);
 				free(pA);
-
-			}
 
 		}
 
@@ -233,8 +219,8 @@ float* computeSmoothing(float *sm, int sigma){
 
     int i,j=0;
     for(i= -(N*sigma);i <=N*sigma; i++){
-    	sm[j] += exp(-pow(i,2)/(2*(pow(sigma,2))));
-    	j++;
+    	sm[j++] += exp(-pow(i,2)/(2*(pow(sigma,2))));
+
     }
 	return sm;
 
@@ -276,11 +262,10 @@ void printGff(struct peaks *pB, char chr[10]){
 	{
 		start = pB[m].value - EXCLUSION;
 		end   = pB[m].value + EXCLUSION;
-		if((pB[m].height <=0) || (pB[m].flag == 0))
+		if((pB[m].height <=0) || (pB[m].flag == 0))    /*  change here, if you want to print by peak height */
 			continue;
 
 		//fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pA[m].height,".",".",".",".");
-		//printf("%s\t%f\n","genetrack",pB[m].height);
 		printf("%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pB[m].height,".",".",".",".");
 
 	}
