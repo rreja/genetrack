@@ -10,38 +10,41 @@
  */
 
 
-void printArray(float *, long, char []);
+void printWiggle(float *, long, char []);
 float* computeVector(float *,float *,int);
-//float* computeVector(float *,float *,float *,int);
 float* populate(float *, long);
 float* memoryAllocate(float *,long);
 float* computeSmoothing(float *,int);
 void findPeaks(float *);
-void printStructres();
-void callPeaks();
+//void printGff();
+
+
 
 long VSIZE = 15000000; /* size of the vector to initialize to */
 long SSIZE = 1000;     /* size of smoothing vector to initialize to*/
 long DSIZE = 15000000; /* size of the duplicate vector to initialize to */
+long PSIZE = 100000;    /* size of the structure to initialize to*/
 int const N = 4;        /* the parameter to contorl the spread of sigma, tells the program to go +/- 4*sigma */
 int const EXCLUSION = 20; /* The exclusion zone, the region in which no other peak would be called */
 
 FILE *op;
 struct peaks {
-				float peakHeight;
-				long index;
+				float height;
+				long value;
 				int flag;
 		}*pA;
 
-int intcmp(struct peaks *,struct peaks *); /*Function to be used in qsort */
-
+int revcmp(struct peaks *,struct peaks *); /*Function to be used in qsort */
+void printGff(struct peaks *, char []);
+void callPeaks(struct peaks *);
 
 
 
 void main ()
 {
 	FILE *fp; /* pointer to the file */
-	fp = fopen("/Users/rohitreja/Desktop/genetrack-GAGA-no-shift.gff","r");   /* reading the file and assigning it to the pointer*/
+//	fp = fopen("/Users/rohitreja/Desktop/genetrack-GAGA-no-shift_positive.gff","r");   /* reading the file and assigning it to the pointer*/
+	fp = fopen("/Users/rohitreja/Desktop/test.txt","r");
 
 	/* to look at the smoothing of the distribution */
 	op = fopen("/Users/rohitreja/Desktop/output_peaks.gff","w");
@@ -86,11 +89,12 @@ void main ()
 			if(strcmp("NULL",PREVIOUS_CHR)){
 
 				dupvector = computeVector(vector,kernel,SIGMA);
-				//printArray(dupvector,VSIZE,PREVIOUS_CHR);
+				//printWiggle(dupvector,VSIZE,PREVIOUS_CHR);
 				findPeaks(dupvector);
-				qsort(pA,VSIZE,sizeof(struct peaks),intcmp);
-				callPeaks();
-				printStructres(PREVIOUS_CHR);
+				qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
+				callPeaks(pA);
+				printGff(pA,PREVIOUS_CHR);
+
 
 				/*
 				 * Call the function to compute on vector and in the compute function
@@ -114,71 +118,63 @@ void main ()
 
 	/* Calling on the compute function here again to make sure the last line is executed too */
 	dupvector = computeVector(vector,kernel,SIGMA);
-	//printArray(dupvector,VSIZE,CHR);
+	//printWiggle(dupvector,VSIZE,CHR);
 	findPeaks(dupvector);
-	qsort(pA,VSIZE,sizeof(struct peaks),intcmp);
-	callPeaks();
-	printStructres(CHR);
+	qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
+	callPeaks(pA);
+	printGff(pA,CHR);
 
 }
 
 
 /* FUNCTION DEFINITIONS START HERE */
 
-void callPeaks(){
-  long k,z,start_range,end_range;
+void callPeaks(struct peaks *pM){
 
-  for(k=VSIZE-1;k>0;k--){
-	  if(pA[k].flag == 0)
+  long k,z,start_range,end_range;
+  for(k=0;k <PSIZE-1;k++){
+
+	  if(pM[k].flag == 0)
 	  	   continue;
-	  if(pA[k].peakHeight == 0)
+	  if(pM[k].height == 0)
 		  break;
-	  start_range = pA[k].index - EXCLUSION;
-	  end_range   = pA[k].index + EXCLUSION;
+	  start_range = pM[k].value - EXCLUSION;
+	  end_range   = pM[k].value + EXCLUSION;
 	  if(start_range < 0 || end_range >VSIZE)
 		  continue;
-	 for(z=k-1;z>0;z--){
-		 if(pA[z].peakHeight == 0)
+	 for(z=k+1;z< PSIZE-2 ;z++){
+		 if(pM[z].height == 0)
 			 break;
 
-		 if(pA[z].index >= start_range && pA[z].index <= end_range)
+		 if(pM[z].value >= start_range && pM[z].value <= end_range)
      	 		  {
-		 			  pA[z].flag = 0;
+		 			  pM[z].flag = 0;
 		 		  }
 
 	 }
 
-
   }
+
+
 }
 
 void findPeaks(float *dup){
-    long m;
-    pA = calloc(VSIZE,sizeof(struct peaks));
+    long m,k=0;
+    pA = calloc(PSIZE,sizeof(struct peaks));
    		 if (pA == 0)
   		 		{
   		 			printf("ERROR: Out of memory\n");
 
   		 		}
 
-	for(m=0;m<VSIZE-2;m++){
-		if(dup[m] >= dup[m+1] && dup[m] >= dup[m+2]){
-			pA[m].peakHeight = dup[m];
-			pA[m].index = m;
-			pA[m].flag = 1;
-
-		}
-		else if(dup[m+1] >= dup[m+2]){
-			pA[m].peakHeight = dup[m+1];
-			pA[m].index = m+1;
-			pA[m].flag = 1;
-
-		}
-		else{
-			pA[m].peakHeight = dup[m+2];
-			pA[m].index = m+2;
-			pA[m].flag = 1;
-
+	for(m=1;m<VSIZE-2;m++){
+		if(dup[m] == 0)
+			continue;
+		if(dup[m] > dup[m-1] && dup[m] > dup[m+1]){   /* check for equality too? */
+			pA[k].height = dup[m];
+			pA[k].value = m;
+			pA[k].flag = 1;
+			k++;
 		}
 
 	}
@@ -208,7 +204,6 @@ float* computeVector(float *vector1,float *kernel1,int sigma){
 				smoothedVec[k] = smoothedVec[k] +  factor*kernel1[l++];
 
 			}
-
 
 		}
 
@@ -245,12 +240,12 @@ float* computeSmoothing(float *sm, int sigma){
 
 }
 
-int intcmp(struct peaks *v1, struct peaks *v2)
+int revcmp(struct peaks *v1, struct peaks *v2)
 {
-    if(v1->peakHeight > v2->peakHeight)
-    	return 1;
-   	else if(v1->peakHeight < v2->peakHeight)
+    if(v1->height > v2->height)
     	return -1;
+   	else if(v1->height < v2->height)
+    	return 1;
    	else
    		return 0;
 
@@ -258,31 +253,35 @@ int intcmp(struct peaks *v1, struct peaks *v2)
 }
 
 
-void printArray(float *arr, long size, char chr[10])
+void printWiggle(float *arr, long size, char chr[10])
 {
 	long i;char temp[10];
 	strcpy(temp,chr);
-	fprintf(op,"variableStep chrom=%s\n",temp);
+	//fprintf(op,"variableStep chrom=%s\n",temp);
+	printf("variableStep chrom=%s\n",temp);
 	for(i=0;i<size;i++)
 	{
 		if(arr[i] <= 0)
 			continue;
-		fprintf(op,"%ld %f\n",i,arr[i]);
+		//fprintf(op,"%ld %f\n",i,arr[i]);
+		printf("%ld %f\n",i,arr[i]);
 	}
 }
 
-void printStructres(char chr[10]){
+void printGff(struct peaks *pB, char chr[10]){
 	long m,start,end;
 	char temp[10];
 	strcpy(temp,chr);
 	for(m=0;m<VSIZE;m++)
 	{
-		start = pA[m].index - EXCLUSION;
-		end   = pA[m].index + EXCLUSION;
-		if((pA[m].peakHeight <=0) || (pA[m].flag == 0))
+		start = pB[m].value - EXCLUSION;
+		end   = pB[m].value + EXCLUSION;
+		if((pB[m].height <=0) || (pB[m].flag == 0))
 			continue;
 
-		fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pA[m].peakHeight,".",".",".",".");
+		//fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pA[m].height,".",".",".",".");
+		//printf("%s\t%f\n","genetrack",pB[m].height);
+		printf("%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pB[m].height,".",".",".",".");
 
 	}
 
