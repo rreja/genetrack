@@ -1,2 +1,2 @@
-genetrack: readGff.c
-	gcc readGff.c -o genetrack
+genetrack: genetrack.c
+	gcc genetrack.c -o genetrack
