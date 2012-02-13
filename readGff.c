@@ -24,7 +24,6 @@ int const N = 4;        /* the parameter to contorl the spread of sigma, tells t
 int const EXCLUSION = 20; /* The exclusion zone, the region in which no other peak would be called */
 
 /* Declaration of other global variables */
-FILE *op;
 struct peaks {
 				float height;
 				long value;
@@ -32,14 +31,15 @@ struct peaks {
 		}*pA;
 
 int revcmp(struct peaks *,struct peaks *); /*Function to be used in qsort */
-void printGff(struct peaks *, char []);
+//void printGff(struct peaks *, char []);
+void printGff(struct peaks *, char [],FILE *);
 void callPeaks(struct peaks *);
 
 /* Start of main function */
 
 void main ()
 {
-	FILE *fp; /* pointer to the file */
+	FILE *fp, *op; /* pointer to the input and output file */
 //	fp = fopen("/Users/rohitreja/Desktop/genetrack-GAGA-no-shift_positive.gff","r");   /* reading the file and assigning it to the pointer*/
 	fp = fopen("/Users/rohitreja/Desktop/test.txt","r");
 
@@ -47,6 +47,7 @@ void main ()
 	op = fopen("/Users/rohitreja/Desktop/output_peaks.gff","w");
 	fprintf(op,"%s\n","##gff-version 3");
 	 /* end of the lines */
+
 
 	char line[500];   /* char array to store each line*/
 	char *toks[10];   /* toks is an array of 10 elements, each of which points to a char */
@@ -88,7 +89,7 @@ void main ()
 				findPeaks(dupvector);
 				qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
 				callPeaks(pA);
-				printGff(pA,PREVIOUS_CHR);
+				printGff(pA,PREVIOUS_CHR,op);
 				/* making memory free here */
 				free(vector);
 				vector = memoryAllocate(vector,VSIZE);
@@ -108,7 +109,9 @@ void main ()
 	findPeaks(dupvector);
 	qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
 	callPeaks(pA);
-	printGff(pA,CHR);
+	printGff(pA,CHR,op);
+	fclose(fp);
+	fclose(op);
 
 }
 
@@ -117,25 +120,21 @@ void main ()
 
 void callPeaks(struct peaks *pM){
 
-  long k,z,start_range,end_range;
+  long k,z;
   for(k=0;k <PSIZE-1;k++){
 
 	  if(pM[k].flag == 0)
 	  	   continue;
 	  if(pM[k].height == 0)
 		  break;
-	  start_range = pM[k].value - EXCLUSION;
-	  end_range   = pM[k].value + EXCLUSION;
-	  if(start_range < 0 || end_range >VSIZE)
-		  continue;
+
 	 for(z=k+1;z< PSIZE-2 ;z++){
 		 if(pM[z].height == 0)
 			 break;
-
-		 if(pM[z].value >= start_range && pM[z].value <= end_range)
+		 if(abs(pM[k].value - pM[z].value) <= EXCLUSION)
      	 		  {
 		 			  pM[z].flag = 0;
-		 		  }
+     	 		  }
 
 	 }
 
@@ -244,17 +243,17 @@ void printWiggle(float *arr, long size, char chr[10])
 	long i;char temp[10];
 	strcpy(temp,chr);
 	//fprintf(op,"variableStep chrom=%s\n",temp);
-	printf("variableStep chrom=%s\n",temp);
+	//printf("variableStep chrom=%s\n",temp);
 	for(i=0;i<size;i++)
 	{
 		if(arr[i] <= 0)
 			continue;
 		//fprintf(op,"%ld %f\n",i,arr[i]);
-		printf("%ld %f\n",i,arr[i]);
+		//printf("%ld %f\n",i,arr[i]);
 	}
 }
 
-void printGff(struct peaks *pB, char chr[10]){
+void printGff(struct peaks *pB, char chr[10],FILE *op){
 	long m,start,end;
 	char temp[10];
 	strcpy(temp,chr);
@@ -265,8 +264,9 @@ void printGff(struct peaks *pB, char chr[10]){
 		if((pB[m].height <=0) || (pB[m].flag == 0))    /*  change here, if you want to print by peak height */
 			continue;
 
-		//fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pA[m].height,".",".",".",".");
+		fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pA[m].height,".",".",".",".");
 		printf("%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pB[m].height,".",".",".",".");
+
 
 	}
 
