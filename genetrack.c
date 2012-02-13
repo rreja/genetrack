@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include "gopt.h"
 
 /* Since the max size of human chromosome is 300,000,000, this program cannot allocate that much memory and dies,
  * possible bug to consider when running human samples. Also, because of this memory restrictions, the size of peakArray
@@ -37,8 +38,22 @@ void callPeaks(struct peaks *);
 
 /* Start of main function */
 
-int main ()
+int main (int argc, const char **argv)
 {
+      void *options= gopt_sort( & argc, argv, gopt_start(
+      gopt_option( 'h', 0, gopt_shorts( 'h', '?' ), gopt_longs( "help", "HELP" )),
+      gopt_option( 'z', 0, gopt_shorts( 0 ), gopt_longs( "version" )),
+      gopt_option( 'v', GOPT_REPEAT, gopt_shorts( 'v' ), gopt_longs( "verbose" )),
+      gopt_option( 'o', GOPT_ARG, gopt_shorts( 'o' ), gopt_longs( "output" ))));
+
+if( gopt( options, 'h' ) ){
+    /*
+     * if any of the help options was specified
+     */
+    fprintf( stdout, "help text\n" );
+    exit( EXIT_SUCCESS );
+  }
+
 	FILE *fp, *op; /* pointer to the input and output file */
 //	fp = fopen("/Users/rohitreja/Desktop/genetrack-GAGA-no-shift_positive.gff","r");   /* reading the file and assigning it to the pointer*/
 	fp = fopen("/Users/rohitreja/Desktop/test.txt","r");
