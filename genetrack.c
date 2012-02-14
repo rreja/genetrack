@@ -23,6 +23,7 @@ long DSIZE = 15000000; /* size of the duplicate vector to initialize to */
 long PSIZE = 100000;    /* size of the structure to initialize to*/
 int const N = 4;        /* the parameter to contorl the spread of sigma, tells the program to go +/- 4*sigma */
 int const EXCLUSION = 20; /* The exclusion zone, the region in which no other peak would be called */
+const char *outfilename, *infilename;
 
 /* Declaration of other global variables */
 struct peaks {
@@ -86,7 +87,6 @@ void findPeaks(float *dup){
 
 }
 
-
 float* computeVector(float *vector1,float *kernel1,int sigma){
 
 	long j;
@@ -133,7 +133,6 @@ float* memoryAllocate(float *v,long vsize){
 
 }
 
-
 float* computeSmoothing(float *sm, int sigma){
 
     int i,j=0;
@@ -145,8 +144,7 @@ float* computeSmoothing(float *sm, int sigma){
 
 }
 
-int revcmp(struct peaks *v1, struct peaks *v2)
-{
+int revcmp(struct peaks *v1, struct peaks *v2){
     if(v1->height > v2->height)
     	return -1;
    	else if(v1->height < v2->height)
@@ -157,9 +155,7 @@ int revcmp(struct peaks *v1, struct peaks *v2)
 
 }
 
-
-void printWiggle(float *arr, long size, char chr[10],FILE *op)
-{
+void printWiggle(float *arr, long size, char chr[10],FILE *op){
 	long i;char temp[10];
 	strcpy(temp,chr);
 	fprintf(op,"variableStep chrom=%s\n",temp);
@@ -186,7 +182,7 @@ void printGff(struct peaks *pB, char chr[10],FILE *op){
 			continue;
 
 		fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pA[m].height,".",".",".",".");
-		printf("%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pB[m].height,".",".",".",".");
+		//printf("%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pB[m].height,".",".",".",".");
 
 
 	}
@@ -197,31 +193,45 @@ void printGff(struct peaks *pB, char chr[10],FILE *op){
 
 /* Start of main function */
 
-int main (int argc, const char **argv)
-{
+int main (int argc, const char **argv){
+                                
       void *options= gopt_sort( & argc, argv, gopt_start(
       gopt_option( 'h', 0, gopt_shorts( 'h', '?' ), gopt_longs( "help", "HELP" )),
       gopt_option( 'z', 0, gopt_shorts( 0 ), gopt_longs( "version" )),
-      gopt_option( 'v', GOPT_REPEAT, gopt_shorts( 'v' ), gopt_longs( "verbose" )),
+      gopt_option( 'i', GOPT_ARG, gopt_shorts( 'i' ), gopt_longs( "input" )),
       gopt_option( 'o', GOPT_ARG, gopt_shorts( 'o' ), gopt_longs( "output" ))));
 
-if( gopt( options, 'h' ) ){
-    /*
-     * if any of the help options was specified
-     */
-    fprintf( stdout, "help text\n" );
-    exit( EXIT_SUCCESS );
-  }
+      FILE *fp, *op; /* pointer to the input and output file */
+      
+      if( gopt( options, 'h' ) ){
+          fprintf( stdout, "help text\n" );
+          exit( EXIT_SUCCESS );
+      }
 
-	FILE *fp, *op; /* pointer to the input and output file */
+      if( gopt_arg(options, 'i', & infilename) && strcmp(infilename, "-" )){
+    
+          fp = fopen(infilename,"r");
+          if(fp == NULL){
+          fprintf(stderr, "%s: %s: could not open file for input\n", argv[0], infilename);
+          exit(EXIT_FAILURE);
+          } 
+    
+      }
+      
+     if( gopt_arg(options, 'o', & outfilename ) && strcmp( outfilename, "-" )){
+    
+        op = fopen(outfilename,"w");
+        if(op == NULL){
+        fprintf(stderr, "%s: %s: could not open file for output\n", argv[0], outfilename );
+        exit(EXIT_FAILURE);
+        }   
+    }
+    else{op = stdout;}
+    
+        fprintf(op,"%s\n","##gff-version 3");                   /* line to print the header for gff.Where to put? */
+
 //	fp = fopen("test/large.gff","r");   /* reading the file and assigning it to the pointer*/
-	fp = fopen("test/small.gff","r");
-
-	/* to look at the smoothing of the distribution */
-	op = fopen("output_peaks.gff","w");
-	fprintf(op,"%s\n","##gff-version 3");
-	 /* end of the lines */
-
+//	fp = fopen("test/small.gff","r");
 
 	char line[500];   /* char array to store each line*/
 	char *toks[10];   /* toks is an array of 10 elements, each of which points to a char */
