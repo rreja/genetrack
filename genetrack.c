@@ -206,7 +206,11 @@ int main (int argc, const char **argv){
       FILE *fp, *op; /* pointer to the input and output file */
       
       if( gopt( options, 'h' ) ){
-          fprintf( stdout, "help text\n" );
+          fprintf( stdout, "\nUsage: ./genetrack -i <inputfile.gff> -s <sigma> -e <exclusion> -o <outputfile>\n");
+          fprintf(stdout,"Required arguments:\n-i <inputfile.gff>, in gff3 format\n");
+          fprintf(stdout,"Optional arguments:\n-o <outputfile>, if not given outputs to the screen, default gff3 format\n");
+          fprintf(stdout,"-s <smoothing>, Smoothin parameter, default = 5\n");
+          fprintf(stdout,"-e: <exclusion>, Exclusion zone, default = 20\n");          
           exit( EXIT_SUCCESS );
       }
       
