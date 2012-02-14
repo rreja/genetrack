@@ -22,9 +22,9 @@ long SSIZE = 1000;     /* size of smoothing vector to initialize to*/
 long DSIZE = 15000000; /* size of the duplicate vector to initialize to */
 long PSIZE = 100000;    /* size of the structure to initialize to*/
 int const N = 4;        /* the parameter to contorl the spread of sigma, tells the program to go +/- 4*sigma */
-const char *outfilename, *infilename,*sig,*ex;
-int SIGMA;
-int EXCLUSION;
+const char *outfilename, *infilename,*wiggleout, *sig,*ex;
+int SIGMA, EXCLUSION;
+int printwig = 0;
 
 /* Declaration of other global variables */
 struct peaks {
@@ -156,18 +156,19 @@ int revcmp(struct peaks *v1, struct peaks *v2){
 
 }
 
-void printWiggle(float *arr, long size, char chr[10],FILE *op){
+void printWiggle(float *arr, long size, char chr[10],FILE *wg){
 	long i;char temp[10];
 	strcpy(temp,chr);
-	fprintf(op,"variableStep chrom=%s\n",temp);
+	fprintf(wg,"variableStep chrom=%s\n",temp);
 	//printf("variableStep chrom=%s\n",temp);
 	for(i=0;i<size;i++)
 	{
 		if(arr[i] <= 0)
 			continue;
-		fprintf(op,"%ld %f\n",i,arr[i]);
+		fprintf(wg,"%ld %f\n",i,arr[i]);
 		//printf("%ld %f\n",i,arr[i]);
 	}
+        fflush(wg);
 }
 
 void printGff(struct peaks *pB, char chr[10],FILE *op){
@@ -201,16 +202,18 @@ int main (int argc, const char **argv){
       gopt_option( 's',GOPT_ARG, gopt_shorts('s'), gopt_longs( "sigma" )),
       gopt_option( 'e',GOPT_ARG, gopt_shorts('e'), gopt_longs( "exclusion" )),
       gopt_option( 'i', GOPT_ARG, gopt_shorts( 'i' ), gopt_longs( "input" )),
+      gopt_option( 'w', GOPT_ARG, gopt_shorts( 'w' ), gopt_longs( "wiggleout" )),
       gopt_option( 'o', GOPT_ARG, gopt_shorts( 'o' ), gopt_longs( "output" ))));
 
-      FILE *fp, *op; /* pointer to the input and output file */
+      FILE *fp, *op, *wg; /* pointer to the input and output file */
       
       if( gopt( options, 'h' ) ){
           fprintf( stdout, "\nUsage: ./genetrack -i <inputfile.gff> -s <sigma> -e <exclusion> -o <outputfile>\n");
-          fprintf(stdout,"Required arguments:\n-i <inputfile.gff>, in gff3 format\n");
-          fprintf(stdout,"Optional arguments:\n-o <outputfile>, if not given outputs to the screen, default gff3 format\n");
+          fprintf(stdout,"Arguments:\n-i <inputfile.gff>, in gff3 format\n");
+          fprintf(stdout,"-o <outputfile>, if not given outputs to the screen, default gff3 format\n");
           fprintf(stdout,"-s <smoothing>, Smoothin parameter, default = 5\n");
-          fprintf(stdout,"-e: <exclusion>, Exclusion zone, default = 20\n");          
+          fprintf(stdout,"-e: <exclusion>, Exclusion zone, default = 20\n");
+          fprintf(stdout,"-w: <wigglefilename>, output in wiggle format\n");
           exit( EXIT_SUCCESS );
       }
       
@@ -219,8 +222,8 @@ int main (int argc, const char **argv){
       }else{SIGMA = 5;}
       
       if( gopt_arg(options, 'e', &ex) && strcmp(ex, "-" )){
-         SIGMA = atoi(ex);
-      }else{SIGMA = 20;}
+         EXCLUSION = atoi(ex);
+      }else{EXCLUSION = 20;}
       
       if( gopt_arg(options, 'i', & infilename) && strcmp(infilename, "-" )){
     
@@ -229,9 +232,20 @@ int main (int argc, const char **argv){
           fprintf(stderr, "%s: %s: could not open file for input\n", argv[0], infilename);
           exit(EXIT_FAILURE);
           } 
+      }
+      else{fp = stdin;}
+      
+      if( gopt_arg(options, 'w', &wiggleout ) && strcmp(wiggleout, "-" )){
+    
+          wg = fopen(wiggleout,"w");
+          printwig = 1;
+          if(wg == NULL){
+          fprintf(stderr, "%s: %s: could not open file for wiggle output\n", argv[0], wiggleout);
+          exit(EXIT_FAILURE);
+          } 
     
       }
-      
+        
      if( gopt_arg(options, 'o', & outfilename ) && strcmp( outfilename, "-" )){
     
         op = fopen(outfilename,"w");
@@ -278,7 +292,8 @@ int main (int argc, const char **argv){
 		if((strcmp(CHR,PREVIOUS_CHR)) && (strcmp("NULL",PREVIOUS_CHR))){
 
 				dupvector = computeVector(vector,kernel,SIGMA);
-				//printWiggle(dupvector,VSIZE,PREVIOUS_CHR,op);
+                                if(printwig)
+                                    printWiggle(dupvector,VSIZE,PREVIOUS_CHR,wg);
 				findPeaks(dupvector);
 				qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
 				callPeaks(pA);
@@ -298,7 +313,8 @@ int main (int argc, const char **argv){
 
 	/* Calling on the compute function here again to make sure the last line is executed too */
 	dupvector = computeVector(vector,kernel,SIGMA);
-	//printWiggle(dupvector,VSIZE,CHR,op);
+        if(printwig)
+            printWiggle(dupvector,VSIZE,CHR,wg);
 	findPeaks(dupvector);
 	qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
 	callPeaks(pA);
