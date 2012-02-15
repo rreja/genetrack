@@ -34,7 +34,7 @@ struct peaks {
 		}*pA;
 
 int revcmp(struct peaks *,struct peaks *); /*Function to be used in qsort */
-void printGff(struct peaks *, char [],FILE *);
+void printGff(struct peaks *, char [],FILE *, float *);
 void callPeaks(struct peaks *);
 
 
@@ -171,22 +171,28 @@ void printWiggle(float *arr, long size, char chr[10],FILE *wg){
         fflush(wg);
 }
 
-void printGff(struct peaks *pB, char chr[10],FILE *op){
-	long m,start,end;
+void printGff(struct peaks *pB, char chr[10],FILE *op, float *vec){
+	long m,start,end,z,sum;
+        float var, sd;
 	char temp[10];
 	strcpy(temp,chr);
 	for(m=0;m<PSIZE;m++)
 	{
-
-		start = pB[m].value - EXCLUSION;
-		end   = pB[m].value + EXCLUSION;
+                sum = 0;
+                var = 0;
 		if((pB[m].height <=0) || (pB[m].flag == 0))    /*  change here, if you want to print by peak height */
 			continue;
-
-		fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pA[m].height,".",".",".",".");
-		//printf("%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%s\t%s\n",temp,"genetrack",".",start,end,pB[m].height,".",".",".",".");
-
-
+                start = pB[m].value - EXCLUSION;
+		end   = pB[m].value + EXCLUSION;
+                for(z=start;z<=end;z++){
+                      sum += vec[z];
+                      var+= pow((pB[m].value - z),2)*vec[z];
+                      
+                      
+                }
+                sd = sqrt(var/sum);
+		fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%ld\t%f\n",temp,"genetrack",".",start,end,pA[m].height,".",sum,sd);
+		
 	}
         fflush(stdout);
         fflush(op);
@@ -297,7 +303,7 @@ int main (int argc, const char **argv){
 				findPeaks(dupvector);
 				qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
 				callPeaks(pA);
-				printGff(pA,PREVIOUS_CHR,op);
+				printGff(pA,PREVIOUS_CHR,op,vector);
 				/* making memory free here */
 				free(vector);
 				vector = memoryAllocate(vector,VSIZE);
@@ -318,7 +324,7 @@ int main (int argc, const char **argv){
 	findPeaks(dupvector);
 	qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
 	callPeaks(pA);
-	printGff(pA,CHR,op);
+	printGff(pA,CHR,op,vector);
 	fclose(fp);
 	fclose(op);
 
