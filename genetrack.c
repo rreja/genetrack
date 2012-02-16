@@ -17,12 +17,10 @@ float* computeSmoothing(float *,int);
 void findPeaks(float *);
 
 /* Constant declarations */
-long VSIZE = 15000000; /* size of the vector to initialize to */
+long VSIZE, PSIZE; /* vsize is the sizeof the vector to initialize to  and psize is the size of the structure to initialize to*/
 long SSIZE = 1000;     /* size of smoothing vector to initialize to*/
-long DSIZE = 15000000; /* size of the duplicate vector to initialize to */
-long PSIZE = 100000;    /* size of the structure to initialize to*/
 int const N = 4;        /* the parameter to contorl the spread of sigma, tells the program to go +/- 4*sigma */
-const char *outfilename, *infilename,*wiggleout, *sig,*ex;
+const char *outfilename, *infilename,*wiggleout, *sig,*ex, *maxsize,*maxpeak;
 int SIGMA, EXCLUSION;
 int printwig = 0;
 
@@ -67,12 +65,13 @@ void callPeaks(struct peaks *pM){
 
 void findPeaks(float *dup){
     long m,k=0;
+    float reqmem;
+    reqmem = (2*VSIZE+PSIZE)/(pow(1024,3));
     pA = calloc(PSIZE,sizeof(struct peaks));
-   		 if (pA == 0)
-  		 		{
-  		 			printf("ERROR: Out of memory\n");
-
-  		 		}
+   		 if (pA == NULL)
+                     {
+                          fprintf(stderr,"ERROR: Out of memory, you need a minimum of %f\n",reqmem);
+                     }
 
 	for(m=1;m<VSIZE-2;m++){
 		if(dup[m] == 0)
@@ -125,10 +124,11 @@ float* populate(float *vec, long pos){
 }
 
 float* memoryAllocate(float *v,long vsize){
-
+        float reqmem;                        
+        reqmem = (2*VSIZE)/(pow(1024,3));
 	v = calloc(vsize,sizeof(float));          /*initializing the vector*/
 	if(v == NULL){
-		printf("ERROR: Out of memory\n");
+		fprintf(stderr,"ERROR: Out of memory, you need a minimum of %f\n",reqmem);
 			}
 	return v;
 
@@ -187,8 +187,7 @@ void printGff(struct peaks *pB, char chr[10],FILE *op, float *vec){
                 for(z=start;z<=end;z++){
                       sum += vec[z];
                       var+= pow((pB[m].value - z),2)*vec[z];
-                      
-                      
+                               
                 }
                 sd = sqrt(var/sum);
 		fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%ld\t%f\n",temp,"genetrack",".",start,end,pA[m].height,".",sum,sd);
@@ -209,6 +208,8 @@ int main (int argc, const char **argv){
       gopt_option( 'e',GOPT_ARG, gopt_shorts('e'), gopt_longs( "exclusion" )),
       gopt_option( 'i', GOPT_ARG, gopt_shorts( 'i' ), gopt_longs( "input" )),
       gopt_option( 'w', GOPT_ARG, gopt_shorts( 'w' ), gopt_longs( "wiggleout" )),
+      gopt_option( 'N', GOPT_ARG, gopt_shorts( 'N' ), gopt_longs( "maxsize" )),
+      gopt_option( 'P', GOPT_ARG, gopt_shorts( 'P' ), gopt_longs( "maxpeak" )),
       gopt_option( 'o', GOPT_ARG, gopt_shorts( 'o' ), gopt_longs( "output" ))));
 
       FILE *fp, *op, *wg; /* pointer to the input and output file */
@@ -220,6 +221,8 @@ int main (int argc, const char **argv){
           fprintf(stdout,"-s <smoothing>, Smoothin parameter, default = 5\n");
           fprintf(stdout,"-e: <exclusion>, Exclusion zone, default = 20\n");
           fprintf(stdout,"-w: <wigglefilename>, output in wiggle format\n");
+          fprintf(stdout,"-N: The size of the largest chromosome, in millions, ex: 300 for 300,000,000 bp\n");
+          fprintf(stdout,"-P: Max Expected number of peaks in the largest chromosome, in millions,ex: 1 for 1,000,000\n");
           exit( EXIT_SUCCESS );
       }
       
@@ -230,6 +233,14 @@ int main (int argc, const char **argv){
       if( gopt_arg(options, 'e', &ex) && strcmp(ex, "-" )){
          EXCLUSION = atoi(ex);
       }else{EXCLUSION = 20;}
+      
+      if( gopt_arg(options, 'N', &maxsize) && strcmp(maxsize, "-" )){
+         VSIZE = atoi(maxsize) * pow(10,6);
+      }else{VSIZE = 15000000;}
+      
+      if( gopt_arg(options, 'P', &maxpeak) && strcmp(maxpeak, "-" )){
+         PSIZE = atoi(maxpeak) * pow(10,6);
+      }else{PSIZE = 100000;}
       
       if( gopt_arg(options, 'i', & infilename) && strcmp(infilename, "-" )){
     
@@ -274,6 +285,7 @@ int main (int argc, const char **argv){
 	vector = memoryAllocate(vector,VSIZE);         /* call to calloc to allocate and initialize vector */
 	kernel = memoryAllocate(kernel,SSIZE);   /* ONE TIME call to calloc to allocate and initialize smoothing vector */
 	kernel = computeSmoothing(kernel,SIGMA);  /* Call to populate the smoothing vector */
+        
 
 
 
