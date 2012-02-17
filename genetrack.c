@@ -41,6 +41,7 @@ void callPeaks(struct peaks *);
 void callPeaks(struct peaks *pM){
 
   long k,z;
+  qsort(pM,PSIZE,sizeof(struct peaks),revcmp);
   for(k=0;k <PSIZE-1;k++){
 
 	  if(pM[k].flag == 0)
@@ -118,9 +119,18 @@ return smoothedVec;
 
 }
 
-float* populate(float *vec, long pos){
-     vec[pos]++;
-     return vec;
+float* populate(float *vec, long pos){                           
+     if(pos >= VSIZE)
+     {
+          fprintf(stderr,"ERROR: You need to increase the size of the parameter 'N', current size=%ld\n",VSIZE);
+          exit(0);
+     }
+     else
+     {
+         vec[pos]++;
+         return vec;                       
+     }
+     
 }
 
 float* memoryAllocate(float *v,long vsize){
@@ -128,8 +138,8 @@ float* memoryAllocate(float *v,long vsize){
         reqmem = (2*VSIZE)/(pow(1024,3));
 	v = calloc(vsize,sizeof(float));          /*initializing the vector*/
 	if(v == NULL){
-		fprintf(stderr,"ERROR: Out of memory, you need a minimum of %f\n",reqmem);
-			}
+		        fprintf(stderr,"ERROR: Out of memory, you need a minimum of %f\n",reqmem);
+                      }
 	return v;
 
 }
@@ -190,7 +200,7 @@ void printGff(struct peaks *pB, char chr[10],FILE *op, float *vec){
                                
                 }
                 sd = sqrt(var/sum);
-		fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%ld\t%f\n",temp,"genetrack",".",start,end,pA[m].height,".",sum,sd);
+		fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%ld\treadsum=%ld;fuzziness=%f;\n",temp,"genetrack",".",start,end,pA[m].height,".",sum,sum,sd);
 		
 	}
         fflush(stdout);
@@ -221,8 +231,8 @@ int main (int argc, const char **argv){
           fprintf(stdout,"-s <smoothing>, Smoothin parameter, default = 5\n");
           fprintf(stdout,"-e: <exclusion>, Exclusion zone, default = 20\n");
           fprintf(stdout,"-w: <wigglefilename>, output in wiggle format\n");
-          fprintf(stdout,"-N: The size of the largest chromosome, in millions, ex: 300 for 300,000,000 bp\n");
-          fprintf(stdout,"-P: Max Expected number of peaks in the largest chromosome, in millions,ex: 1 for 1,000,000\n");
+          fprintf(stdout,"-N: The size of the largest chromosome, in millions, ex: 300 for 300,000,000 bp, default = 15\n");
+          fprintf(stdout,"-P: Max Expected number of peaks in the largest chromosome, in millions,ex: 1 for 1,000,000, default = 0.1\n");
           exit( EXIT_SUCCESS );
       }
       
@@ -303,7 +313,7 @@ int main (int argc, const char **argv){
 
 					}
 		strcpy(CHR,toks[0]);
-		strcpy(STRAND,toks[6]);
+		strcpy(STRAND,toks[6]); /* the strand information is not used here, but change the START position for negative strand*/
 		START = atoi(toks[3]);
 		//printf("%s,%ld\n",CHR,START);
 
@@ -313,14 +323,14 @@ int main (int argc, const char **argv){
                                 if(printwig)
                                     printWiggle(dupvector,VSIZE,PREVIOUS_CHR,wg);
 				findPeaks(dupvector);
-				qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
+				//qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
 				callPeaks(pA);
 				printGff(pA,PREVIOUS_CHR,op,vector);
 				/* making memory free here */
 				free(vector);
-				vector = memoryAllocate(vector,VSIZE);
 				free(dupvector);
 				free(pA);
+                                vector = memoryAllocate(vector,VSIZE);
 
 		}
 
@@ -334,7 +344,7 @@ int main (int argc, const char **argv){
         if(printwig)
             printWiggle(dupvector,VSIZE,CHR,wg);
 	findPeaks(dupvector);
-	qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
+	//qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
 	callPeaks(pA);
 	printGff(pA,CHR,op,vector);
 	fclose(fp);
