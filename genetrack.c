@@ -15,6 +15,7 @@ float* populate(float *, long);
 float* memoryAllocate(float *,long);
 float* computeSmoothing(float *,int);
 void findPeaks(float *);
+void computeAll(float *,float *, char [],char *);
 
 /* Constant declarations */
 long VSIZE, PSIZE; /* vsize is the sizeof the vector to initialize to  and psize is the size of the structure to initialize to*/
@@ -23,6 +24,7 @@ int const N = 4;        /* the parameter to contorl the spread of sigma, tells t
 const char *outfilename, *infilename,*wiggleout, *sig,*ex, *maxsize,*maxpeak;
 int SIGMA, EXCLUSION;
 int printwig = 0;
+FILE *fp, *op, *wg; /* pointer to the input and output file */
 
 /* Declaration of other global variables */
 struct peaks {
@@ -32,11 +34,29 @@ struct peaks {
 		}*pA;
 
 int revcmp(struct peaks *,struct peaks *); /*Function to be used in qsort */
-void printGff(struct peaks *, char [],FILE *, float *);
+void printGff(struct peaks *, char [],FILE *, float *, char *);
 void callPeaks(struct peaks *);
 
 
 /* FUNCTION DEFINITIONS START HERE */
+
+void computeAll(float *vec,float *kernel, char chr[10],char *strand){
+     float *dupvector;
+     
+     dupvector = computeVector(vec,kernel,SIGMA);
+     if(printwig)
+        printWiggle(dupvector,VSIZE,chr,wg);
+     findPeaks(dupvector);
+     callPeaks(pA);
+     printGff(pA,chr,op,vec,strand);
+   
+     /* making memory free here */
+     free(vec);
+     free(dupvector);
+     free(pA);
+                                
+                                
+}
 
 void callPeaks(struct peaks *pM){
 
@@ -181,7 +201,7 @@ void printWiggle(float *arr, long size, char chr[10],FILE *wg){
         fflush(wg);
 }
 
-void printGff(struct peaks *pB, char chr[10],FILE *op, float *vec){
+void printGff(struct peaks *pB, char chr[10],FILE *op, float *vec,char *strand){
 	long m,start,end,z,sum;
         float var, sd;
 	char temp[10];
@@ -200,7 +220,7 @@ void printGff(struct peaks *pB, char chr[10],FILE *op, float *vec){
                                
                 }
                 sd = sqrt(var/sum);
-		fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%ld\treadsum=%ld;fuzziness=%f;\n",temp,"genetrack",".",start,end,pA[m].height,".",sum,sum,sd);
+		fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%ld\treadsum=%ld;fuzziness=%f;\n",temp,"genetrack",".",start,end,pA[m].height,strand,sum,sum,sd);
 		
 	}
         fflush(stdout);
@@ -222,7 +242,7 @@ int main (int argc, const char **argv){
       gopt_option( 'P', GOPT_ARG, gopt_shorts( 'P' ), gopt_longs( "maxpeak" )),
       gopt_option( 'o', GOPT_ARG, gopt_shorts( 'o' ), gopt_longs( "output" ))));
 
-      FILE *fp, *op, *wg; /* pointer to the input and output file */
+      //FILE *fp, *op, *wg; /* pointer to the input and output file */
       
       if( gopt( options, 'h' ) ){
           fprintf( stdout, "\nUsage: ./genetrack -i <inputfile.gff> -s <sigma> -e <exclusion> -o <outputfile>\n");
@@ -289,64 +309,52 @@ int main (int argc, const char **argv){
 	char CHR[10],STRAND[5];
 	long START;
 	char PREVIOUS_CHR[10] = "NULL";
-	float *vector, *dupvector;   /* vector to be populated */
+	float *fwdvec,*revvec;       /* vectors to be populated */
 	float *kernel;       /* smoothing vector to be populated */
 
-	vector = memoryAllocate(vector,VSIZE);         /* call to calloc to allocate and initialize vector */
-	kernel = memoryAllocate(kernel,SSIZE);   /* ONE TIME call to calloc to allocate and initialize smoothing vector */
-	kernel = computeSmoothing(kernel,SIGMA);  /* Call to populate the smoothing vector */
+	fwdvec = memoryAllocate(fwdvec,VSIZE);         /* call to calloc to allocate and initialize vector */
+        revvec = memoryAllocate(revvec,VSIZE);         /* call to calloc to allocate and initialize vector */
+	kernel = memoryAllocate(kernel,SSIZE);        /* ONE TIME call to calloc to allocate and initialize smoothing vector */
+	kernel = computeSmoothing(kernel,SIGMA);      /* Call to populate the smoothing vector */
         
-
-
-
-	while(fgets(line,500,fp) != NULL) /* fgets */
+	while(fgets(line,500,fp) != NULL)             /* fgets */
 	{
 
-		if(line[0] == '#') /* ignore all the comment lines that start with # */
+		if(line[0] == '#')                    /* ignore all the comment lines that start with # */
 			continue;
 
 		int cols = 0;
 		toks[cols] = strtok(line,"\t");
 		while(cols < 7)
-					{
-						toks[++cols] = strtok(NULL,"\t");                    /* storing all token in toks for one line */
+				{
+				    toks[++cols] = strtok(NULL,"\t");                    /* storing all token in toks for one line */
 
-					}
+				}
 		strcpy(CHR,toks[0]);
-		strcpy(STRAND,toks[6]); /* the strand information is not used here, but change the START position for negative strand*/
-		START = atoi(toks[3]);
-		//printf("%s,%ld\n",CHR,START);
-
 		if((strcmp(CHR,PREVIOUS_CHR)) && (strcmp("NULL",PREVIOUS_CHR))){
 
-				dupvector = computeVector(vector,kernel,SIGMA);
-                                if(printwig)
-                                    printWiggle(dupvector,VSIZE,PREVIOUS_CHR,wg);
-				findPeaks(dupvector);
-				//qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
-				callPeaks(pA);
-				printGff(pA,PREVIOUS_CHR,op,vector);
-				/* making memory free here */
-				free(vector);
-				free(dupvector);
-				free(pA);
-                                vector = memoryAllocate(vector,VSIZE);
+                                computeAll(fwdvec,kernel,PREVIOUS_CHR,"+");
+                                computeAll(revvec,kernel,PREVIOUS_CHR,"-");
+                                fwdvec = memoryAllocate(fwdvec,VSIZE);
+                                revvec = memoryAllocate(revvec,VSIZE);
 
 		}
+                
+                if(!(strcmp(toks[6],"+"))){
+                        START = atoi(toks[3]);
+                        fwdvec = populate(fwdvec,START);
+                }else{
+                        START = atoi(toks[4]);
+                        revvec = populate(revvec,START);
+                } 
 
-		 vector = populate(vector,START);
 		 strcpy(PREVIOUS_CHR,CHR);
 
 	 }
 
 	/* Calling on the compute function here again to make sure the last line is executed too */
-	dupvector = computeVector(vector,kernel,SIGMA);
-        if(printwig)
-            printWiggle(dupvector,VSIZE,CHR,wg);
-	findPeaks(dupvector);
-	//qsort(pA,PSIZE,sizeof(struct peaks),revcmp);
-	callPeaks(pA);
-	printGff(pA,CHR,op,vector);
+        computeAll(fwdvec,kernel,CHR,"+");
+        computeAll(revvec,kernel,CHR,"-");
 	fclose(fp);
 	fclose(op);
 
