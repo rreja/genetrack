@@ -18,13 +18,14 @@ void findPeaks(float *);
 void computeAll(float *,float *, char [],char *);
 
 /* Constant declarations */
-long VSIZE, PSIZE; /* vsize is the sizeof the vector to initialize to  and psize is the size of the structure to initialize to*/
+long VSIZE, PSIZE, DEBUG=1; /* vsize is the sizeof the vector to initialize to  and psize is the size of the structure to initialize to*/
 long SSIZE = 1000;     /* size of smoothing vector to initialize to*/
 int const N = 4;        /* the parameter to contorl the spread of sigma, tells the program to go +/- 4*sigma */
 const char *outfilename, *infilename,*wiggleout, *sig,*ex, *maxsize,*maxpeak;
 int SIGMA, EXCLUSION;
 int printwig = 0;
 FILE *fp, *op, *wg; /* pointer to the input and output file */
+char msg[1000];
 
 /* Declaration of other global variables */
 struct peaks {
@@ -37,6 +38,11 @@ int revcmp(struct peaks *,struct peaks *); /*Function to be used in qsort */
 void printGff(struct peaks *, char [],FILE *, float *, char *);
 void callPeaks(struct peaks *);
 
+void logging(char *msg){
+    if (DEBUG){
+        printf("*** %s\n", msg);
+    }
+}
 
 /* FUNCTION DEFINITIONS START HERE */
 
@@ -154,14 +160,20 @@ float* populate(float *vec, long pos){
 }
 
 float* memoryAllocate(float *v,long vsize){
-        float reqmem;                        
-        reqmem = (2*VSIZE)/(pow(1024,3));
-	v = calloc(vsize,sizeof(float));          /*initializing the vector*/
-	if(v == NULL){
-		        fprintf(stderr,"ERROR: Out of memory, you need a minimum of %f\n",reqmem);
-                      }
-	return v;
-
+    long i;
+    float r;
+    
+    v = calloc(vsize, sizeof(float));          /*initializing the vector*/
+	r = vsize/pow(1024,3) * sizeof(float);
+    
+    if(v == NULL){
+		fprintf(stderr,"ERROR: Out of memory, while allocating %fGb of RAM\n",r );
+    }
+    
+    sprintf(msg, "allocating %.1f Gb of RAM", r); 
+    logging(msg);
+    
+    return v;
 }
 
 float* computeSmoothing(float *sm, int sigma){
@@ -266,7 +278,7 @@ int main (int argc, const char **argv){
       
       if( gopt_arg(options, 'N', &maxsize) && strcmp(maxsize, "-" )){
          VSIZE = atoi(maxsize) * pow(10,6);
-      }else{VSIZE = 15000000;}
+      } else { VSIZE = 15000000;}
       
       if( gopt_arg(options, 'P', &maxpeak) && strcmp(maxpeak, "-" )){
          PSIZE = atoi(maxpeak) * pow(10,6);
@@ -313,7 +325,7 @@ int main (int argc, const char **argv){
 	float *kernel;       /* smoothing vector to be populated */
 
 	fwdvec = memoryAllocate(fwdvec,VSIZE);         /* call to calloc to allocate and initialize vector */
-        revvec = memoryAllocate(revvec,VSIZE);         /* call to calloc to allocate and initialize vector */
+    revvec = memoryAllocate(revvec,VSIZE);         /* call to calloc to allocate and initialize vector */
 	kernel = memoryAllocate(kernel,SSIZE);        /* ONE TIME call to calloc to allocate and initialize smoothing vector */
 	kernel = computeSmoothing(kernel,SIGMA);      /* Call to populate the smoothing vector */
         
@@ -332,7 +344,10 @@ int main (int argc, const char **argv){
 				}
 		strcpy(CHR,toks[0]);
 		if((strcmp(CHR,PREVIOUS_CHR)) && (strcmp("NULL",PREVIOUS_CHR))){
-
+            if (DEBUG) {
+                   printf("predicting on chromosome %s\n", PREVIOUS_CHR);
+            }
+               
                                 computeAll(fwdvec,kernel,PREVIOUS_CHR,"+");
                                 computeAll(revvec,kernel,PREVIOUS_CHR,"-");
                                 fwdvec = memoryAllocate(fwdvec,VSIZE);
