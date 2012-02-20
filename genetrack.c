@@ -3,11 +3,14 @@
 #include <string.h>
 #include <math.h>
 #include "gopt.h"
+#include "khash.h"
 
 /* Since the max size of human chromosome is 300,000,000, this program cannot allocate that much memory and dies,
  * possible bug to consider when running human samples. Also, because of this memory restrictions, the size of peakArray
  * cannot be more than 200000.
  */
+
+KHASH_MAP_INIT_STR(str, int)
 
 void printWiggle(float *, long, char [],FILE *);
 float* computeVector(float *,float *,int);
@@ -27,6 +30,7 @@ int printwig = 0;
 FILE *fp, *op, *wg; /* pointer to the input and output file */
 char msg[1000];
 
+
 /* Declaration of other global variables */
 struct peaks {
 				float height;
@@ -42,6 +46,11 @@ void logging(char *msg){
     if (DEBUG){
         printf("*** %s\n", msg);
     }
+}
+
+void error(char *msg){
+    fprintf(stderr,"(!) error %s\n", msg);
+    exit(-1);
 }
 
 /* FUNCTION DEFINITIONS START HERE */
@@ -243,7 +252,15 @@ void printGff(struct peaks *pB, char chr[10],FILE *op, float *vec,char *strand){
 /* Start of main function */
 
 int main (int argc, const char **argv){
-                                
+    
+    int ret, is_missing;
+    char *dup;
+    
+    khash_t(str) *h;
+    h = kh_init(str);
+    khiter_t k;
+    
+               
       void *options= gopt_sort( & argc, argv, gopt_start(
       gopt_option( 'h', 0, gopt_shorts( 'h', '?' ), gopt_longs( "help", "HELP" )),
       gopt_option( 's',GOPT_ARG, gopt_shorts('s'), gopt_longs( "sigma" )),
@@ -343,10 +360,23 @@ int main (int argc, const char **argv){
 
 				}
 		strcpy(CHR,toks[0]);
+        
 		if((strcmp(CHR,PREVIOUS_CHR)) && (strcmp("NULL",PREVIOUS_CHR))){
             if (DEBUG) {
                    printf("predicting on chromosome %s\n", PREVIOUS_CHR);
             }
+            
+            dup = strdup(PREVIOUS_CHR);
+            
+            k = kh_put(str, h, CHR, &ret);
+            
+            if (!ret) {
+                sprintf(msg, "chromosome already exists");
+                error(msg);
+            }
+        
+        
+
                
                                 computeAll(fwdvec,kernel,PREVIOUS_CHR,"+");
                                 computeAll(revvec,kernel,PREVIOUS_CHR,"-");
