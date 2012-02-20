@@ -362,14 +362,14 @@ int main (int argc, const char **argv){
 		strcpy(CHR,toks[0]);
         
 		if((strcmp(CHR,PREVIOUS_CHR)) && (strcmp("NULL",PREVIOUS_CHR))){
-            if (DEBUG) {
-                   printf("predicting on chromosome %s\n", PREVIOUS_CHR);
-            }
+            
+            sprintf(msg, "processsing chromosome %s", PREVIOUS_CHR);
+            logging(msg);
             
             dup = strdup(PREVIOUS_CHR);
             
-            k = kh_put(str, h, CHR, &ret);
-            
+            k = kh_put(str, h, strdup(PREVIOUS_CHR), &ret);
+                
             if (!ret) {
                 sprintf(msg, "chromosome already exists");
                 error(msg);

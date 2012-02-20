@@ -1,0 +1,13 @@
+##gff-version 3
+chr4	genetrack	.	54907	54927	12.9603973466	+	.	readcount=13;ID=P54917;stddev=0.360801212294;height=12.9603973466
+chr4	genetrack	.	62121	62141	28.9970473399	+	.	readcount=30;ID=P62131;stddev=1.52752523165;height=28.9970473399
+chr4	genetrack	.	62121	63628	77.0	+	.	readcount=77;ID=P63618;stddev=0.0;height=77.0
+chr4	genetrack	.	72113	72133	12.0	+	.	readcount=12;ID=P72123;stddev=0.0;height=12.0
+chr4	genetrack	.	79573	79593	9.0	+	.	readcount=9;ID=P79583;stddev=0.0;height=9.0
+chr4	genetrack	.	89575	89595	4.0	+	.	readcount=4;ID=P89585;stddev=0.0;height=4.0
+chr4	genetrack	.	12196	121989	16.0	+	.	readcount=16;ID=P121979;stddev=0.0;height=16.0
+chr4	genetrack	.	159669	159689	23.0	+	.	readcount=23;ID=P159679;stddev=0.0;height=23.0
+chr5	genetrack	.	160462	160482	10.0	+	.	readcount=10;ID=P160472;stddev=0.0;height=10.0
+chr4	genetrack	.	54907	54927	12.9603973466	+	.	readcount=13;ID=P54917;stddev=0.360801212294;height=12.9603973466
+chr4	genetrack	.	54907	54927	12.9603973466	+	.	readcount=13;ID=P54917;stddev=0.360801212294;height=12.9603973466
+chr5	genetrack	.	160462	160482	10.0	+	.	readcount=10;ID=P160472;stddev=0.0;height=10.0
