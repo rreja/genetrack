@@ -246,8 +246,8 @@ void printGff(struct peaks *pB, char chr[10],FILE *op, float *vec,char *strand){
                 var = 0;
 		if((pB[m].height <=TAGCOUNT) || (pB[m].flag == 0))    /*  change here, if you want to print by peak height */
 			continue;
-                start = pB[m].value - EXCLUSION;
-		end   = pB[m].value + EXCLUSION;
+                start = pB[m].value - EXCLUSION/2;
+		end   = pB[m].value + EXCLUSION/2;
                 for(z=start;z<=end;z++){
                       sum += vec[z];
                       var+= pow((pB[m].value - z),2)*vec[z];
