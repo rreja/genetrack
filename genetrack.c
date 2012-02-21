@@ -76,7 +76,7 @@ void computeAll(float *vec,float *kernel, char chr[10],char *strand){
 void callPeaks(struct peaks *pM){
 
   long k,z;
-  qsort(pM,PSIZE,sizeof(struct peaks),revcmp);
+  qsort(pM,PSIZE,sizeof(struct peaks),(void *)revcmp);
   for(k=0;k <PSIZE-1;k++){
 
 	  if(pM[k].flag == 0)
@@ -179,7 +179,7 @@ float* memoryAllocate(float *v,long vsize){
 		fprintf(stderr,"ERROR: Out of memory, while allocating %fGb of RAM\n",r );
     }
     
-    sprintf(msg, "allocating %.1f Gb of RAM", r); 
+    sprintf(msg, "allocating %.4f Gb of RAM", r); 
     logging(msg);
     
     return v;
@@ -342,7 +342,7 @@ int main (int argc, const char **argv){
 	float *kernel;       /* smoothing vector to be populated */
 
 	fwdvec = memoryAllocate(fwdvec,VSIZE);         /* call to calloc to allocate and initialize vector */
-    revvec = memoryAllocate(revvec,VSIZE);         /* call to calloc to allocate and initialize vector */
+      revvec = memoryAllocate(revvec,VSIZE);         /* call to calloc to allocate and initialize vector */
 	kernel = memoryAllocate(kernel,SSIZE);        /* ONE TIME call to calloc to allocate and initialize smoothing vector */
 	kernel = computeSmoothing(kernel,SIGMA);      /* Call to populate the smoothing vector */
         
@@ -371,7 +371,7 @@ int main (int argc, const char **argv){
             k = kh_put(str, h, strdup(PREVIOUS_CHR), &ret);
                 
             if (!ret) {
-                sprintf(msg, "chromosome already exists");
+                sprintf(msg, "File not sorted,please sort your file by chromosome");
                 error(msg);
             }
         
@@ -398,6 +398,8 @@ int main (int argc, const char **argv){
 	 }
 
 	/* Calling on the compute function here again to make sure the last line is executed too */
+        sprintf(msg, "processsing chromosome %s", PREVIOUS_CHR);
+        logging(msg);
         computeAll(fwdvec,kernel,CHR,"+");
         computeAll(revvec,kernel,CHR,"-");
 	fclose(fp);
