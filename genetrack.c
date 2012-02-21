@@ -12,7 +12,7 @@
 
 KHASH_MAP_INIT_STR(str, int)
 
-void printWiggle(float *, long, char [],FILE *);
+void printWiggle(float *, long, char [], char *);
 float* computeVector(float *,float *,int);
 float* populate(float *, long);
 float* memoryAllocate(float *,long);
@@ -24,11 +24,12 @@ void computeAll(float *,float *, char [],char *);
 long VSIZE, PSIZE, DEBUG=1; /* vsize is the sizeof the vector to initialize to  and psize is the size of the structure to initialize to*/
 long SSIZE = 1000;     /* size of smoothing vector to initialize to*/
 int const N = 4;        /* the parameter to contorl the spread of sigma, tells the program to go +/- 4*sigma */
-const char *outfilename, *infilename,*wiggleout, *sig,*ex, *maxsize,*maxpeak;
+const char *outfilename, *infilename,*wiggleout, *sig,*ex, *maxsize,*maxpeak,*tg;
 int SIGMA, EXCLUSION;
+float TAGCOUNT;
 int printwig = 0;
-FILE *fp, *op, *wg; /* pointer to the input and output file */
-char msg[1000];
+FILE *fp, *op, *fwg,*rwg; /* pointer to the input and output file */
+char msg[1000],fwdwg[100] = "fwd_",revwg[100] = "rev_";
 
 
 /* Declaration of other global variables */
@@ -60,7 +61,7 @@ void computeAll(float *vec,float *kernel, char chr[10],char *strand){
      
      dupvector = computeVector(vec,kernel,SIGMA);
      if(printwig)
-        printWiggle(dupvector,VSIZE,chr,wg);
+        printWiggle(dupvector,VSIZE,chr,strand);
      findPeaks(dupvector);
      callPeaks(pA);
      printGff(pA,chr,op,vec,strand);
@@ -207,19 +208,31 @@ int revcmp(struct peaks *v1, struct peaks *v2){
 
 }
 
-void printWiggle(float *arr, long size, char chr[10],FILE *wg){
+void printWiggle(float *arr, long size, char chr[10],char *strand){
 	long i;char temp[10];
 	strcpy(temp,chr);
-	fprintf(wg,"variableStep chrom=%s\n",temp);
-	//printf("variableStep chrom=%s\n",temp);
-	for(i=0;i<size;i++)
+        
+        if(!(strcmp(strand,"-"))){
+           fprintf(rwg,"variableStep chrom=%s\n",temp);
+           for(i=0;i<size;i++)
 	{
-		if(arr[i] <= 0)
+		if(arr[i] <= 1)
 			continue;
-		fprintf(wg,"%ld %f\n",i,arr[i]);
-		//printf("%ld %f\n",i,arr[i]);
+		fprintf(rwg,"%ld %f\n",i,arr[i]);
 	}
-        fflush(wg);
+        fflush(rwg);
+           
+        }
+        else{
+            fprintf(fwg,"variableStep chrom=%s\n",temp);
+	    for(i=0;i<size;i++){
+		if(arr[i] <= 1)
+			continue;
+		fprintf(fwg,"%ld %f\n",i,arr[i]);
+	}
+        fflush(fwg);                               
+        }
+	
 }
 
 void printGff(struct peaks *pB, char chr[10],FILE *op, float *vec,char *strand){
@@ -231,7 +244,7 @@ void printGff(struct peaks *pB, char chr[10],FILE *op, float *vec,char *strand){
 	{
                 sum = 0;
                 var = 0;
-		if((pB[m].height <=0) || (pB[m].flag == 0))    /*  change here, if you want to print by peak height */
+		if((pB[m].height <=TAGCOUNT) || (pB[m].flag == 0))    /*  change here, if you want to print by peak height */
 			continue;
                 start = pB[m].value - EXCLUSION;
 		end   = pB[m].value + EXCLUSION;
@@ -265,6 +278,7 @@ int main (int argc, const char **argv){
       gopt_option( 'h', 0, gopt_shorts( 'h', '?' ), gopt_longs( "help", "HELP" )),
       gopt_option( 's',GOPT_ARG, gopt_shorts('s'), gopt_longs( "sigma" )),
       gopt_option( 'e',GOPT_ARG, gopt_shorts('e'), gopt_longs( "exclusion" )),
+      gopt_option( 'c',GOPT_ARG, gopt_shorts('c'), gopt_longs( "tagcount" )),
       gopt_option( 'i', GOPT_ARG, gopt_shorts( 'i' ), gopt_longs( "input" )),
       gopt_option( 'w', GOPT_ARG, gopt_shorts( 'w' ), gopt_longs( "wiggleout" )),
       gopt_option( 'N', GOPT_ARG, gopt_shorts( 'N' ), gopt_longs( "maxsize" )),
@@ -279,6 +293,7 @@ int main (int argc, const char **argv){
           fprintf(stdout,"-o <outputfile>, if not given outputs to the screen, default gff3 format\n");
           fprintf(stdout,"-s <smoothing>, Smoothin parameter, default = 5\n");
           fprintf(stdout,"-e: <exclusion>, Exclusion zone, default = 20\n");
+          fprintf(stdout,"-c: <tag_count_threshold>, Peaks containing more than 'c' tags, default = 3\n");
           fprintf(stdout,"-w: <wigglefilename>, output in wiggle format\n");
           fprintf(stdout,"-N: The size of the largest chromosome, in millions, ex: 300 for 300,000,000 bp, default = 15\n");
           fprintf(stdout,"-P: Max Expected number of peaks in the largest chromosome, in millions,ex: 1 for 1,000,000, default = 0.1\n");
@@ -292,6 +307,10 @@ int main (int argc, const char **argv){
       if( gopt_arg(options, 'e', &ex) && strcmp(ex, "-" )){
          EXCLUSION = atoi(ex);
       }else{EXCLUSION = 20;}
+      
+      if( gopt_arg(options, 'c', &tg) && strcmp(tg, "-" )){
+         TAGCOUNT = atoi(tg);
+      }else{TAGCOUNT = 2.8;}
       
       if( gopt_arg(options, 'N', &maxsize) && strcmp(maxsize, "-" )){
          VSIZE = atoi(maxsize) * pow(10,6);
@@ -312,10 +331,13 @@ int main (int argc, const char **argv){
       else{fp = stdin;}
       
       if( gopt_arg(options, 'w', &wiggleout ) && strcmp(wiggleout, "-" )){
-    
-          wg = fopen(wiggleout,"w");
+                                
+          strcat(fwdwg,wiggleout);
+          strcat(revwg,wiggleout);
+          fwg = fopen(fwdwg,"w");
+          rwg = fopen(revwg,"w");
           printwig = 1;
-          if(wg == NULL){
+          if(fwg == NULL || rwg == NULL){
           fprintf(stderr, "%s: %s: could not open file for wiggle output\n", argv[0], wiggleout);
           exit(EXIT_FAILURE);
           } 
