@@ -24,11 +24,10 @@ void computeAll(float *,float *, char [],char *);
 long VSIZE, PSIZE, DEBUG=1; /* vsize is the sizeof the vector to initialize to  and psize is the size of the structure to initialize to*/
 long SSIZE = 1000;     /* size of smoothing vector to initialize to*/
 int const N = 4;        /* the parameter to contorl the spread of sigma, tells the program to go +/- 4*sigma */
-const char *outfilename, *infilename,*wiggleout, *sig,*ex, *maxsize,*maxpeak,*tg;
-int SIGMA, EXCLUSION;
+const char *outfilename, *infilename,*wiggleout, *bedout, *sig,*ex, *maxsize,*maxpeak,*tg;
+int SIGMA, EXCLUSION,BED=0,BEDOUT = 0,printwig = 0,GFFOUT=0,CHR_IDX = 0,FWD_START_IDX=3,REV_START_IDX=4,STRAND_IDX=6;
 float TAGCOUNT;
-int printwig = 0,CHR_IDX = 0,FWD_START_IDX=3,REV_START_IDX=4,STRAND_IDX=6;
-FILE *fp, *op, *fwg,*rwg; /* pointer to the input and output file */
+FILE *fp, *op, *fwg,*rwg,*ob; /* pointer to the input and output file */
 char msg[1000],fwdwg[100] = "fwd_",revwg[100] = "rev_";
 
 
@@ -41,6 +40,7 @@ struct peaks {
 
 int revcmp(struct peaks *,struct peaks *); /*Function to be used in qsort */
 void printGff(struct peaks *, char [],FILE *, float *, char *);
+void printBed(struct peaks *, char [],FILE *, float *, char *);
 void callPeaks(struct peaks *);
 
 void logging(char *msg){
@@ -64,7 +64,10 @@ void computeAll(float *vec,float *kernel, char chr[10],char *strand){
         printWiggle(dupvector,VSIZE,chr,strand);
      findPeaks(dupvector);
      callPeaks(pA);
-     printGff(pA,chr,op,vec,strand);
+     if(BEDOUT)
+         printBed(pA,chr,ob,vec,strand);
+     if(GFFOUT)   
+         printGff(pA,chr,op,vec,strand);
    
      /* making memory free here */
      free(vec);
@@ -261,6 +264,23 @@ void printGff(struct peaks *pB, char chr[10],FILE *op, float *vec,char *strand){
         fflush(op);
 }
 
+void printBed(struct peaks *pB, char chr[10],FILE *ob, float *vec,char *strand){
+            
+        long m,start,end;
+	char temp[10];
+	strcpy(temp,chr);
+	for(m=0;m<PSIZE;m++)
+	{
+                
+		if((pB[m].height <=TAGCOUNT) || (pB[m].flag == 0))    /*  change here, if you want to print by peak height */
+			continue;
+                start = (pB[m].value - EXCLUSION/2) - 1;
+		end   = pB[m].value + EXCLUSION/2;
+		fprintf(ob,"%s\t%ld\t%ld\t%s\t%s\t%s\n",temp,start,end,".",".",strand);
+		
+	}
+        fflush(ob);                       
+}
 
 /* Start of main function */
 
@@ -282,6 +302,7 @@ int main (int argc, const char **argv){
       gopt_option( 'i', GOPT_ARG, gopt_shorts( 'i' ), gopt_longs( "input" )),
       gopt_option( 'b', 0, gopt_shorts( 'b' ), gopt_longs( "bed" )),
       gopt_option( 'w', GOPT_ARG, gopt_shorts( 'w' ), gopt_longs( "wiggleout" )),
+      gopt_option( 't', GOPT_ARG, gopt_shorts( 't' ), gopt_longs( "bedout" )),
       gopt_option( 'N', GOPT_ARG, gopt_shorts( 'N' ), gopt_longs( "maxsize" )),
       gopt_option( 'P', GOPT_ARG, gopt_shorts( 'P' ), gopt_longs( "maxpeak" )),
       gopt_option( 'o', GOPT_ARG, gopt_shorts( 'o' ), gopt_longs( "output" ))));
@@ -291,11 +312,12 @@ int main (int argc, const char **argv){
       if( gopt( options, 'h' ) ){
           fprintf( stdout, "\nUsage: ./genetrack -i <inputfile.gff> -s <sigma> -e <exclusion> -o <outputfile>\n");
           fprintf(stdout,"Arguments:\n-i <inputfile.gff>, in gff3 format\n");
-          fprintf(stdout,"-o <outputfile>, if not given outputs to the screen, default gff3 format\n");
+          fprintf(stdout,"-b: if the input file is in BED format\n");
+          fprintf(stdout,"-o <outputfile>,   output in GFF format\n");
+          fprintf(stdout,"-t <outputfile>,  output in BED format\n");
           fprintf(stdout,"-s <smoothing>, Smoothin parameter, default = 5\n");
           fprintf(stdout,"-e: <exclusion>, Exclusion zone, default = 20\n");
           fprintf(stdout,"-c: <tag_count_threshold>, Peaks containing more than 'c' tags, default = 3\n");
-          fprintf(stdout,"-b: if the input file is in BED format\n");
           fprintf(stdout,"-w: <wigglefilename>, output in wiggle format\n");
           fprintf(stdout,"-N: The size of the largest chromosome, in millions, ex: 300 for 300,000,000 bp, default = 15\n");
           fprintf(stdout,"-P: Max Expected number of peaks in the largest chromosome, in millions,ex: 1 for 1,000,000, default = 0.1\n");
@@ -327,6 +349,7 @@ int main (int argc, const char **argv){
             FWD_START_IDX=1;
             REV_START_IDX=2;
             STRAND_IDX=5;
+            BED = 1;
             
       }
       
@@ -339,6 +362,17 @@ int main (int argc, const char **argv){
           } 
       }
       else{fp = stdin;}
+      
+      if( gopt_arg(options, 't', &bedout) && strcmp(bedout, "-" )){
+    
+          ob = fopen(bedout,"w");
+          BEDOUT = 1;
+          if(ob == NULL){
+          fprintf(stderr, "%s: %s: could not open file for input\n", argv[0], bedout);
+          exit(EXIT_FAILURE);
+          } 
+      }
+      
       
       if( gopt_arg(options, 'w', &wiggleout ) && strcmp(wiggleout, "-" )){
                                 
@@ -357,14 +391,15 @@ int main (int argc, const char **argv){
      if( gopt_arg(options, 'o', & outfilename ) && strcmp( outfilename, "-" )){
     
         op = fopen(outfilename,"w");
+        fprintf(op,"%s\n","##gff-version 3");                   /* line to print the header for gff*/
+        GFFOUT = 1;
         if(op == NULL){
         fprintf(stderr, "%s: %s: could not open file for output\n", argv[0], outfilename );
         exit(EXIT_FAILURE);
         }   
     }
-    else{op = stdout;}
+    else{op = stdout;}          /*  Uncomment if you want to print to screen*/
     
-        fprintf(op,"%s\n","##gff-version 3");                   /* line to print the header for gff.Where to put? */
 	char line[500];   /* char array to store each line*/
 	char *toks[10];   /* toks is an array of 10 elements, each of which points to a char */
 	char CHR[10],STRAND[5], *ptr;;
@@ -416,10 +451,10 @@ int main (int argc, const char **argv){
 
                 if(!(strcmp(toks[STRAND_IDX],"+"))){
                         START = atoi(toks[FWD_START_IDX]);
-                        fwdvec = populate(fwdvec,START);
+                        fwdvec = populate(fwdvec,START+BED);  /* when -b flag is on, add 1 to the bed file start co-ordinate */
                 }else{
-                        START = atoi(toks[REV_START_IDX]);
-                        revvec = populate(revvec,START);
+                        START = atoi(toks[REV_START_IDX]);    
+                        revvec = populate(revvec,START);     /* we do not add +1 here as this is the reverse strand and we are considerinf the 5' end */
                 } 
 
 		 strcpy(PREVIOUS_CHR,CHR);
