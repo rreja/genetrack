@@ -27,7 +27,7 @@ int const N = 4;        /* the parameter to contorl the spread of sigma, tells t
 const char *outfilename, *infilename,*wiggleout, *sig,*ex, *maxsize,*maxpeak,*tg;
 int SIGMA, EXCLUSION;
 float TAGCOUNT;
-int printwig = 0;
+int printwig = 0,CHR_IDX = 0,FWD_START_IDX=3,REV_START_IDX=4,STRAND_IDX=6;
 FILE *fp, *op, *fwg,*rwg; /* pointer to the input and output file */
 char msg[1000],fwdwg[100] = "fwd_",revwg[100] = "rev_";
 
@@ -280,6 +280,7 @@ int main (int argc, const char **argv){
       gopt_option( 'e',GOPT_ARG, gopt_shorts('e'), gopt_longs( "exclusion" )),
       gopt_option( 'c',GOPT_ARG, gopt_shorts('c'), gopt_longs( "tagcount" )),
       gopt_option( 'i', GOPT_ARG, gopt_shorts( 'i' ), gopt_longs( "input" )),
+      gopt_option( 'b', 0, gopt_shorts( 'b' ), gopt_longs( "bed" )),
       gopt_option( 'w', GOPT_ARG, gopt_shorts( 'w' ), gopt_longs( "wiggleout" )),
       gopt_option( 'N', GOPT_ARG, gopt_shorts( 'N' ), gopt_longs( "maxsize" )),
       gopt_option( 'P', GOPT_ARG, gopt_shorts( 'P' ), gopt_longs( "maxpeak" )),
@@ -294,6 +295,7 @@ int main (int argc, const char **argv){
           fprintf(stdout,"-s <smoothing>, Smoothin parameter, default = 5\n");
           fprintf(stdout,"-e: <exclusion>, Exclusion zone, default = 20\n");
           fprintf(stdout,"-c: <tag_count_threshold>, Peaks containing more than 'c' tags, default = 3\n");
+          fprintf(stdout,"-b: if the input file is in BED format\n");
           fprintf(stdout,"-w: <wigglefilename>, output in wiggle format\n");
           fprintf(stdout,"-N: The size of the largest chromosome, in millions, ex: 300 for 300,000,000 bp, default = 15\n");
           fprintf(stdout,"-P: Max Expected number of peaks in the largest chromosome, in millions,ex: 1 for 1,000,000, default = 0.1\n");
@@ -319,6 +321,14 @@ int main (int argc, const char **argv){
       if( gopt_arg(options, 'P', &maxpeak) && strcmp(maxpeak, "-" )){
          PSIZE = atoi(maxpeak) * pow(10,6);
       }else{PSIZE = 100000;}
+      
+      if( gopt( options, 'b' ) ){
+            CHR_IDX = 0;
+            FWD_START_IDX=1;
+            REV_START_IDX=2;
+            STRAND_IDX=5;
+            
+      }
       
       if( gopt_arg(options, 'i', & infilename) && strcmp(infilename, "-" )){
     
@@ -357,7 +367,7 @@ int main (int argc, const char **argv){
         fprintf(op,"%s\n","##gff-version 3");                   /* line to print the header for gff.Where to put? */
 	char line[500];   /* char array to store each line*/
 	char *toks[10];   /* toks is an array of 10 elements, each of which points to a char */
-	char CHR[10],STRAND[5];
+	char CHR[10],STRAND[5], *ptr;;
 	long START;
 	char PREVIOUS_CHR[10] = "NULL";
 	float *fwdvec,*revvec;       /* vectors to be populated */
@@ -381,24 +391,18 @@ int main (int argc, const char **argv){
 				    toks[++cols] = strtok(NULL,"\t");                    /* storing all token in toks for one line */
 
 				}
-		strcpy(CHR,toks[0]);
-        
+		strcpy(CHR,toks[CHR_IDX]);
 		if((strcmp(CHR,PREVIOUS_CHR)) && (strcmp("NULL",PREVIOUS_CHR))){
             
-            sprintf(msg, "processsing chromosome %s", PREVIOUS_CHR);
-            logging(msg);
-            
-            dup = strdup(PREVIOUS_CHR);
-            
-            k = kh_put(str, h, strdup(PREVIOUS_CHR), &ret);
+                      sprintf(msg, "processsing chromosome %s", PREVIOUS_CHR);
+                      logging(msg);
+                      dup = strdup(PREVIOUS_CHR);
+                       k = kh_put(str, h, strdup(PREVIOUS_CHR), &ret);
                 
-            if (!ret) {
-                sprintf(msg, "File not sorted,please sort your file by chromosome");
-                error(msg);
-            }
-        
-        
-
+                       if (!ret) {
+                           sprintf(msg, "File not sorted,please sort your file by chromosome");
+                             error(msg);
+                          }
                
                                 computeAll(fwdvec,kernel,PREVIOUS_CHR,"+");
                                 computeAll(revvec,kernel,PREVIOUS_CHR,"-");
@@ -407,11 +411,14 @@ int main (int argc, const char **argv){
 
 		}
                 
-                if(!(strcmp(toks[6],"+"))){
-                        START = atoi(toks[3]);
+                if( (ptr = strchr(toks[STRAND_IDX], '\n')) != NULL)   /* remove the newline characer from the strand for bed files */
+                    *ptr = '\0';
+
+                if(!(strcmp(toks[STRAND_IDX],"+"))){
+                        START = atoi(toks[FWD_START_IDX]);
                         fwdvec = populate(fwdvec,START);
                 }else{
-                        START = atoi(toks[4]);
+                        START = atoi(toks[REV_START_IDX]);
                         revvec = populate(revvec,START);
                 } 
 
