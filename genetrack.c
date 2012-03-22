@@ -257,7 +257,7 @@ void printGff(struct peaks *pB, char chr[10],FILE *op, float *vec,char *strand){
                                
                 }
                 sd = sqrt(var/sum);
-		fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%ld\treadsum=%ld;fuzziness=%f;\n",temp,"genetrack",".",start,end,pA[m].height,strand,sum,sum,sd);
+		fprintf(op,"%s\t%s\t%s\t%ld\t%ld\t%f\t%s\t%ld\treadcount=%ld;stddev=%f\n",temp,"genetrack",".",start,end,pA[m].height,strand,sum,sum,sd);
 		
 	}
         fflush(stdout);
